@@ -3,9 +3,9 @@ import telebot
 import openai
 from flask import Flask, request
 
-# Отримуємо токени з середовища
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+# Отримання ключів з environment
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
 openai.api_key = OPENAI_API_KEY
@@ -22,25 +22,27 @@ def webhook():
     else:
         return 'Invalid content type', 403
 
-@app.route('/', methods=['GET'])
-def index():
-    return 'KIIT_bot is running'
-
 @bot.message_handler(commands=['start'])
 def start_message(message):
-    bot.send_message(message.chat.id, "Привіт! Я інтегрований із ChatGPT. Пиши щось — я відповім.")
+    bot.send_message(message.chat.id, 'Привіт! Я справжній ChatGPT-бот. Напиши мені щось!')
 
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",  # можна змінити на gpt-4, якщо маєш доступ
-            messages=[{"role": "user", "content": message.text}]
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "user", "content": message.text}
+            ]
         )
-        reply = response['choices'][0]['message']['content']
+        reply = response.choices[0].message['content'].strip()
         bot.send_message(message.chat.id, reply)
     except Exception as e:
-        bot.send_message(message.chat.id, f"Помилка: {e}")
+        bot.send_message(message.chat.id, f"Виникла помилка: {e}")
+
+@app.route('/', methods=['GET'])
+def index():
+    return 'KIIT_bot is running with ChatGPT!'
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000)
