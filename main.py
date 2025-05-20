@@ -1,51 +1,32 @@
-
-import logging
-import openai
+import os
+import telebot
 from flask import Flask, request
-import telegram
-from telegram.ext import Dispatcher, MessageHandler, Filters
 
-# Токен Telegram-бота
-TELEGRAM_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
-# API-ключ OpenAI
-OPENAI_API_KEY = "your_openai_api_key"
+TELEGRAM_TOKEN = os.environ.get('TELEGRAM_TOKEN')
 
-openai.api_key = OPENAI_API_KEY
+print("=== TELEGRAM_TOKEN from ENV ===")
+print(TELEGRAM_TOKEN)
 
+if not TELEGRAM_TOKEN:
+    raise ValueError("TELEGRAM_TOKEN not found in environment variables")
+
+bot = telebot.TeleBot(TELEGRAM_TOKEN)
 app = Flask(__name__)
-bot = telegram.Bot(token=TELEGRAM_TOKEN)
 
-@app.route(f"/{TELEGRAM_TOKEN}", methods=["POST"])
-def respond():
-    update = telegram.Update.de_json(request.get_json(force=True), bot)
-    dispatcher.process_update(update)
-    return "ok"
-
-def handle_message(update, context):
-    user_text = update.message.text
-    chat_id = update.message.chat_id
-
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "Ти — персональний помічник кавʼярні КІІТ, говориш українською, відповідаєш чітко, по суті, з теплом."},
-                {"role": "user", "content": user_text}
-            ],
-            temperature=0.7
-        )
-        reply_text = response.choices[0].message.content
-    except Exception as e:
-        reply_text = f"Помилка: {e}"
-
-    bot.send_message(chat_id=chat_id, text=reply_text)
-
-dispatcher = Dispatcher(bot, None, workers=0, use_context=True)
-dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
-
-@app.route("/")
+@app.route('/')
 def index():
-    return "Бот КІІТ працює!"
+    return "KIIT echo-bot is running!"
 
-if __name__ == "__main__":
-    app.run(port=8443)
+@app.route(f'/{TELEGRAM_TOKEN}', methods=['POST'])
+def webhook():
+    json_str = request.get_data().decode('UTF-8')
+    update = telebot.types.Update.de_json(json_str)
+    bot.process_new_updates([update])
+    return '', 200
+
+@bot.message_handler(func=lambda message: True)
+def echo_all(message):
+    bot.reply_to(message, message.text)
+
+if __name__ == '__main__':
+    app.run(debug=True)
