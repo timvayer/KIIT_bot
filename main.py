@@ -1,43 +1,37 @@
 import os
-import logging
 import openai
-import telebot
 from flask import Flask, request
+import telebot
 
-# Logging
-logging.basicConfig(level=logging.INFO)
-
-# Environment
+# Ініціалізація токенів
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
 openai.api_key = OPENAI_API_KEY
 
-# Flask app
 app = Flask(__name__)
 
-# Відповідь на будь-яке текстове повідомлення
-@bot.message_handler(func=lambda message: True, content_types=['text'])
-def handle_message(message):
-    user_input = message.text
-    chat_id = message.chat.id
-    logging.info(f"===> Нове повідомлення: {user_input}")
-
+# Відповідь від ChatGPT
+def get_gpt_response(prompt):
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4o",
-            messages=[{"role": "user", "content": user_input}],
-            max_tokens=1000,
-            temperature=0.7
+            model="gpt-4",  # або "gpt-3.5-turbo"
+            messages=[
+                {"role": "system", "content": "Ти — чемний Telegram-бот, який відповідає коротко й українською."},
+                {"role": "user", "content": prompt}
+            ]
         )
-        reply = response.choices[0].message["content"]
+        return response.choices[0].message.content.strip()
     except Exception as e:
-        reply = "Помилка при зверненні до ChatGPT. Спробуй ще раз."
-        logging.error(f"OpenAI error: {e}")
+        return f"Помилка: {str(e)}"
 
-    bot.send_message(chat_id, reply)
+# Обробка повідомлення
+@bot.message_handler(func=lambda message: True)
+def handle_message(message):
+    user_input = message.text
+    reply = get_gpt_response(user_input)
+    bot.send_message(message.chat.id, reply)
 
 # Webhook
 @app.route('/webhook', methods=['POST'])
@@ -48,15 +42,12 @@ def webhook():
         bot.process_new_updates([update])
         return '', 200
     else:
-        return 'Unsupported Media Type', 415
+        return 'Invalid request', 403
 
-# Set webhook (одноразово)
-@app.route('/set_webhook', methods=['GET', 'POST'])
-def set_webhook():
-    bot.remove_webhook()
-    success = bot.set_webhook(url=WEBHOOK_URL + "/webhook")
-    return "Webhook встановлено" if success else "Помилка встановлення"
+# Healthcheck
+@app.route('/')
+def index():
+    return "Telegram-GPT бот працює!"
 
-# Gunicorn entry point
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run()
