@@ -1,9 +1,12 @@
-
 import telebot
 from telebot import types
 import os
+from dotenv import load_dotenv
 
+# Підключення .env
+load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+
 bot = telebot.TeleBot(BOT_TOKEN)
 
 # Список пирогів з емодзі
