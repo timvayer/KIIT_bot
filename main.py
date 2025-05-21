@@ -1,4 +1,3 @@
-
 import telebot
 from telebot import types
 import os
@@ -8,7 +7,7 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# Пиріжки
+# Дані
 savory_pyrizhky = {
     "🥔": "Картопля",
     "🥔🍄": "Картопля-гриби",
@@ -29,13 +28,11 @@ sweet_pyrizhky = {
     "Яблуко-кориця": "Яблуко-кориця"
 }
 
-# Пироги
 meat_pies = {
     "🍗🍅🧀": "Курка-томати-сир",
     "🍗🍄🧀": "Курка-гриби-сир",
     "🍗🍍": "Курка-ананас-сир",
-    "🦃🫑": "Індик-солодкий перець",
-    "🐄🧀": "Мʼясо-овочі"
+    "🦃🫑": "Індик-солодкий перець"
 }
 veggie_pies = {
     "🧅": "Цибулевий",
@@ -61,36 +58,52 @@ def start_report(message):
     chat_id = message.chat.id
     user_reports[chat_id] = []
 
-    text = "*Пироги*
+    structure_text = """*Пироги*
 
-"
-    text += "_З мʼясом:_
-" + "".join([f"{e} — {n}
-" for e, n in meat_pies.items()])
-    text += "
+_З мʼясом:_
+🍗🍅🧀 — Курка-томати-сир
+🍗🍄🧀 — Курка-гриби-сир
+🍗🍍 — Курка-ананас-сир
+🦃🫑 — Індик-солодкий перець
+
 _Без мʼяса:_
-" + "".join([f"{e} — {n}
-" for e, n in veggie_pies.items()])
-    text += "
+🧅 — Цибулевий
+🍄🧀 — Сир-гриби
+🧀🍃 — Сир-шпинат
+🧀 — Сім сирів
+
 _Солодкі:_
-" + "".join([f"{e} — {n}
-" for e, n in sweet_pies.items()])
-    text += "
+🍒🫐 — Вишня-чорниця
+🍒🧀 — Вишня-сир
 
 *Пиріжки*
 
-"
-    text += "_Солоні:_
-" + "".join([f"{e} — {n}
-" for e, n in savory_pyrizhky.items()])
-    text += "
+_Солоні:_
+🥔 — Картопля
+🥔🍄 — Картопля-гриби
+🍄 — Гриби
+🥬 — Капуста
+🥬🥩 — Капуста-мʼясо
+🥩🥗 — Мʼясо-овочі
+
 _Солодкі:_
-" + "".join([f"{e} — {n}
-" for e, n in sweet_pyrizhky.items()])
-    bot.send_message(chat_id, text, parse_mode="Markdown")
+🍒 — Вишня
+🍒🍫 — Вишня-шоколад
+🍒🌼 — Вишня-мак
+🍐 — Груша
+Слива — Слива
+Абрикос — Абрикос
+Вишня-крем — Вишня-крем
+Мак-крем — Мак-крем
+Яблуко-кориця — Яблуко-кориця
+"""
+    bot.send_message(chat_id, structure_text, parse_mode="Markdown")
 
     markup = types.InlineKeyboardMarkup(row_width=3)
-    for emoji in list(meat_pies.keys()) + list(veggie_pies.keys()) + list(sweet_pies.keys()) + list(savory_pyrizhky.keys()) + list(sweet_pyrizhky.keys()):
+    for emoji in (
+        list(meat_pies.keys()) + list(veggie_pies.keys()) + list(sweet_pies.keys()) +
+        list(savory_pyrizhky.keys()) + list(sweet_pyrizhky.keys())
+    ):
         markup.add(types.InlineKeyboardButton(emoji, callback_data=f"item_{emoji}"))
     bot.send_message(chat_id, "Оберіть виріб:", reply_markup=markup)
 
@@ -98,7 +111,14 @@ _Солодкі:_
 def ask_quantity(call):
     chat_id = call.message.chat.id
     emoji = call.data.split("_", 1)[1]
-    name = (meat_pies.get(emoji) or veggie_pies.get(emoji) or sweet_pies.get(emoji) or savory_pyrizhky.get(emoji) or sweet_pyrizhky.get(emoji) or "невідомий")
+    name = (
+        meat_pies.get(emoji)
+        or veggie_pies.get(emoji)
+        or sweet_pies.get(emoji)
+        or savory_pyrizhky.get(emoji)
+        or sweet_pyrizhky.get(emoji)
+        or "невідомий"
+    )
     msg = bot.send_message(chat_id, f"Скільки залишилось з {emoji}?")
     bot.register_next_step_handler(msg, lambda m: save_quantity(m, emoji, name))
 
@@ -117,9 +137,7 @@ def finish_report(message):
     if not data:
         bot.send_message(chat_id, "Нічого не внесено.")
         return
-    final_text = "*Готове:*
-" + "
-".join(data)
+    final_text = "*Готове:*\n" + "\n".join(data)
     bot.send_message(chat_id, final_text, parse_mode="Markdown")
 
 bot.polling()
