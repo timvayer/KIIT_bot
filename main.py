@@ -7,134 +7,145 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# Категорії виробів
-pies_meat = {
-    "🍗🍅🧀": "Курка-томати-сир",
-    "🍗🍄🧀": "Курка-гриби-сир",
-    "🍗🍍": "Курка-ананас-сир",
-    "🦃🫑": "Індик-солодкий перець"
-}
-pies_veggie = {
-    "🧅": "Цибулевий",
-    "🍄🧀": "Сир-гриби",
-    "🧀🍃": "Сир-шпинат",
-    "🧀": "Сім сирів"
-}
-pies_sweet = {
-    "🍒🫐": "Вишня-чорниця",
-    "🍒🧀": "Вишня-сир"
-}
-savory_pyrizhky = {
-    "🥔": "Картопля",
-    "🥔🍄": "Картопля-гриби",
-    "🍄": "Гриби",
-    "🥬": "Капуста",
-    "🥬🥩": "Капуста-мʼясо",
-    "🥩🥗": "Мʼясо-овочі"
-}
-sweet_pyrizhky = {
-    "🍒": "Вишня",
-    "🍒🍫": "Вишня-шоколад",
-    "🍒🌼": "Вишня-мак",
-    "🍐": "Груша",
-    "Слива": "Слива",
-    "Абрикос": "Абрикос",
-    "Вишня-крем": "Вишня-крем",
-    "Мак-крем": "Мак-крем",
-    "Яблуко-кориця": "Яблуко-кориця"
-}
-galettes = {
-    "🥧🍏": "Яблуко-кориця",
-    "🥧🍅": "Томати-сир"
-}
-desserts = {
-    "🍰": "Торт Наполеон",
-    "🍯": "Пахлава",
-    "🥜": "Горішки"
-}
-
 user_reports = {}
+user_stage = {}
+user_category = {}
+user_subcategory = {}
 
-@bot.message_handler(commands=["start"])
-def start_bot(message):
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add("/звіт", "/готово")
-    bot.send_message(message.chat.id, "Привіт! Оберіть дію:", reply_markup=markup)
+# Дані
+pies = {
+    "Пиріжки": {
+        "Солоні": {
+            "🥔": "Картопля",
+            "🥔🍄": "Картопля-гриби",
+            "🍄": "Гриби",
+            "🥬": "Капуста",
+            "🥬🥩": "Капуста-мʼясо",
+            "🥩🥗": "Мʼясо-овочі"
+        },
+        "Солодкі": {
+            "🍒": "Вишня",
+            "🍒🍫": "Вишня-шоколад",
+            "🍒🌼": "Вишня-мак",
+            "🍐": "Груша",
+            "Слива": "Слива",
+            "Абрикос": "Абрикос",
+            "Вишня-крем": "Вишня-крем",
+            "Мак-крем": "Мак-крем",
+            "Яблуко-кориця": "Яблуко-кориця"
+        }
+    },
+    "Пироги": {
+        "З мʼясом": {
+            "🍗🍅🧀": "Курка-томати-сир",
+            "🍗🍄🧀": "Курка-гриби-сир",
+            "🦃🫑": "Індик-перець",
+        },
+        "Без мʼяса": {
+            "🧅": "Цибулевий",
+            "🧀🍄": "Сир-гриби",
+            "🧀🥬": "Сир-шпинат",
+            "🧀": "Сім сирів"
+        },
+        "Солодкі": {
+            "🍒🔵": "Вишня-чорниця",
+            "🍒🧀": "Вишня-сир"
+        }
+    },
+    "Галети": {
+        "🥧🍏": "Яблуко-кориця",
+        "🥧🍅": "Томати-сир"
+    },
+    "Десерти": {
+        "🍰": "Торт Наполеон",
+        "🍯": "Пахлава",
+        "🥜": "Горішки"
+    }
+}
 
-@bot.message_handler(commands=["звіт"])
-def choose_category(message):
+# Команда /start або /звіт
+@bot.message_handler(commands=["start", "звіт"])
+def start_report(message):
     chat_id = message.chat.id
     user_reports[chat_id] = []
+    user_stage[chat_id] = "category"
     markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("🥟 Пиріжки", callback_data="cat_pyrizhky"))
-    markup.add(types.InlineKeyboardButton("🥧 Пироги", callback_data="cat_pies"))
-    markup.add(types.InlineKeyboardButton("🍅 Галети", callback_data="cat_galettes"))
-    markup.add(types.InlineKeyboardButton("🍰 Десерти", callback_data="cat_desserts"))
-    bot.send_message(chat_id, "Що саме звітуємо?", reply_markup=markup)
+    for cat in pies:
+        markup.add(types.InlineKeyboardButton(f"{list(pies[cat].values())[0] if isinstance(pies[cat], dict) else ''} {cat}", callback_data=cat))
+    bot.send_message(chat_id, "Оберіть категорію:", reply_markup=markup)
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("cat_"))
-def handle_category(call):
+# Обробка кнопок
+@bot.callback_query_handler(func=lambda call: True)
+def handle_query(call):
     chat_id = call.message.chat.id
+    data = call.data
+
+    if user_stage.get(chat_id) == "category":
+        user_category[chat_id] = data
+        if isinstance(pies[data], dict) and all(isinstance(v, dict) for v in pies[data].values()):
+            user_stage[chat_id] = "subcategory"
+            markup = types.InlineKeyboardMarkup()
+            for subcat in pies[data]:
+                markup.add(types.InlineKeyboardButton(subcat, callback_data=subcat))
+            bot.send_message(chat_id, "Оберіть підкатегорію:", reply_markup=markup)
+        else:
+            user_stage[chat_id] = "product"
+            show_products(chat_id, pies[data])
+    elif user_stage.get(chat_id) == "subcategory":
+        user_subcategory[chat_id] = data
+        user_stage[chat_id] = "product"
+        category = user_category[chat_id]
+        show_products(chat_id, pies[category][data])
+    elif user_stage.get(chat_id) == "product":
+        emoji = data
+        category = user_category[chat_id]
+        subcat = user_subcategory.get(chat_id)
+        name = pies[category][subcat][emoji] if subcat else pies[category][emoji]
+        user_stage[chat_id] = "quantity"
+        user_reports[chat_id].append({"emoji": emoji, "name": name})
+        bot.send_message(chat_id, f"Скільки залишилось з {emoji}?")
+
+# Введення кількості
+@bot.message_handler(func=lambda message: message.text.isdigit())
+def handle_quantity(message):
+    chat_id = message.chat.id
+    if user_stage.get(chat_id) == "quantity":
+        qty = int(message.text)
+        if user_reports.get(chat_id):
+            user_reports[chat_id][-1]["qty"] = qty
+            last = user_reports[chat_id][-1]
+            bot.send_message(chat_id, f"Записано: {last['emoji']} {last['name']} — {qty} шт.")
+        user_stage[chat_id] = "product"
+        # Повторне виведення продуктів
+        category = user_category[chat_id]
+        subcat = user_subcategory.get(chat_id)
+        current_dict = pies[category][subcat] if subcat else pies[category]
+        show_products(chat_id, current_dict)
+
+# /готово — фінал
+@bot.message_handler(commands=["готово"])
+def finish_report(message):
+    chat_id = message.chat.id
+    if chat_id in user_reports:
+        text = "*Готове:*\n"
+        for item in user_reports[chat_id]:
+            text += f"{item['emoji']} {item['name']} — {item['qty']} шт.\n"
+        bot.send_message(chat_id, text, parse_mode="Markdown")
+        del user_reports[chat_id]
+        user_stage[chat_id] = None
+
+# Допоміжна
+def show_products(chat_id, items_dict):
     markup = types.InlineKeyboardMarkup()
-    category = call.data.split("_")[1]
-
-    if category == "pyrizhky":
-        for emoji, name in savory_pyrizhky.items():
-            markup.add(types.InlineKeyboardButton(emoji, callback_data=f"item_{emoji}"))
-        for emoji, name in sweet_pyrizhky.items():
-            markup.add(types.InlineKeyboardButton(emoji, callback_data=f"item_{emoji}"))
-    elif category == "pies":
-        for emoji, name in pies_meat.items():
-            markup.add(types.InlineKeyboardButton(emoji, callback_data=f"item_{emoji}"))
-        for emoji, name in pies_veggie.items():
-            markup.add(types.InlineKeyboardButton(emoji, callback_data=f"item_{emoji}"))
-        for emoji, name in pies_sweet.items():
-            markup.add(types.InlineKeyboardButton(emoji, callback_data=f"item_{emoji}"))
-    elif category == "galettes":
-        for emoji, name in galettes.items():
-            markup.add(types.InlineKeyboardButton(emoji, callback_data=f"item_{emoji}"))
-    elif category == "desserts":
-        for emoji, name in desserts.items():
-            markup.add(types.InlineKeyboardButton(emoji, callback_data=f"item_{emoji}"))
-
+    row = []
+    for i, emoji in enumerate(items_dict):
+        btn = types.InlineKeyboardButton(emoji, callback_data=emoji)
+        row.append(btn)
+        if len(row) == 2:
+            markup.add(*row)
+            row = []
+    if row:
+        markup.add(*row)
     bot.send_message(chat_id, "Оберіть виріб:", reply_markup=markup)
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("item_"))
-def ask_quantity(call):
-    chat_id = call.message.chat.id
-    emoji = call.data.split("_")[1]
-    bot.send_message(chat_id, f"Скільки залишилось з {emoji}?")
-    bot.register_next_step_handler(call.message, save_quantity, emoji)
-
-def save_quantity(message, emoji):
-    chat_id = message.chat.id
-    qty = message.text.strip()
-    if not qty.isdigit():
-        bot.send_message(chat_id, "Будь ласка, введіть число.")
-        return
-
-    name = (
-        savory_pyrizhky.get(emoji)
-        or sweet_pyrizhky.get(emoji)
-        or pies_meat.get(emoji)
-        or pies_veggie.get(emoji)
-        or pies_sweet.get(emoji)
-        or galettes.get(emoji)
-        or desserts.get(emoji)
-        or "Невідомо"
-    )
-
-    user_reports[chat_id].append(f"{emoji} {name} — {qty} шт.")
-    bot.send_message(chat_id, f"Записано: {emoji} {name} — {qty} шт.")
-
-@bot.message_handler(commands=["готово"])
-def show_report(message):
-    chat_id = message.chat.id
-    items = user_reports.get(chat_id, [])
-    if not items:
-        bot.send_message(chat_id, "Поки що нічого не заповнено.")
-        return
-    report = "\n".join(items)
-    bot.send_message(chat_id, f"Готове:\n{report}")
-
-bot.polling(none_stop=True)
+bot.polling()
