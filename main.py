@@ -1,3 +1,6 @@
+# TEST PUSH — перевірка автозапуску
+
+
 import telebot
 from telebot import types
 import os
