@@ -7,95 +7,157 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# Категорії пирогів
-pies_categories = {
+user_reports = {}
+user_states = {}
+
+# === КАТЕГОРІЇ ===
+categories = ["Пироги", "Пиріжки", "Галети", "Десерти"]
+
+# === ПИРОГИ ===
+pies = {
     "З мʼясом": {
         "🍗🍅🧀": "Курка-томати-сир",
-        "🍗🍄🧀": "Курка-гриби-сир",
-        "🦃🫑": "Індик-солодкий перець",
-        "🐄🧀": "Телятина-сир",
         "🍗🍍🧀": "Курка-ананас-сир",
+        "🍗🍄🧀": "Курка-гриби-сир",
+        "🐄🧀": "Телятина-сир",
+        "🦃🫑": "Індик-солодкий перець"
     },
     "Без мʼяса": {
         "🧅": "Цибулевий",
-        "🧀🍃": "Сир-шпинат",
         "🍄🧀": "Гриби-сир",
-        "🧀": "Сім сирів",
+        "🧀🍃": "Сир-шпинат",
+        "🧀": "Сім сирів"
     },
     "Солодкі": {
         "🍒🫐": "Вишня-лохина",
-        "🍒🧀": "Вишня-сир",
+        "🍒🧀": "Вишня-сир"
     }
 }
 
-# Звіти користувачів
-user_reports = {}
+# === ПИРІЖКИ ===
+savory_pyrizhky = {
+    "🥔": "Картопля",
+    "🥔🍄": "Картопля-гриби",
+    "🍄": "Гриби",
+    "🥬": "Капуста",
+    "🥬🥩": "Капуста-мʼясо",
+    "🥩🥗": "Мʼясо-овочі"
+}
 
-@bot.message_handler(commands=['start'])
-def send_welcome(message):
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add(types.KeyboardButton('/звіт'), types.KeyboardButton('/готово'))
-    bot.send_message(message.chat.id, "Вітаю! Натисніть /звіт, щоб почати звіт.", reply_markup=markup)
+sweet_pyrizhky = {
+    "🍒": "Вишня",
+    "🍒🍫": "Вишня-шоколад",
+    "🍒🌼": "Вишня-мак",
+    "🍐": "Груша",
+    "Слива": "Слива",
+    "Абрикос": "Абрикос",
+    "Вишня-крем": "Вишня-крем",
+    "Мак-крем": "Мак-крем",
+    "Яблуко-кориця": "Яблуко-кориця"
+}
 
-@bot.message_handler(commands=['звіт'])
+# === ГАЛЕТИ І ДЕСЕРТИ ===
+galety = {"🥧🍏": "Яблуко-кориця", "🥧🍅": "Томати-сир"}
+deserty = {"🍰": "Торт Наполеон", "🍯": "Пахлава", "🥜": "Горішки"}
+
+# === СТАРТ / ЗВІТ ===
+@bot.message_handler(commands=["start", "звіт"])
 def start_report(message):
     chat_id = message.chat.id
     user_reports[chat_id] = []
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("🥧 Пироги", callback_data="категорія:Пироги"))
-    markup.add(types.InlineKeyboardButton("🥟 Пиріжки", callback_data="категорія:Пиріжки"))
-    markup.add(types.InlineKeyboardButton("🥧 Галети", callback_data="категорія:Галети"))
-    markup.add(types.InlineKeyboardButton("🍰 Десерти", callback_data="категорія:Десерти"))
-    markup.add(types.InlineKeyboardButton("Скасувати", callback_data="скасувати"))
+    user_states[chat_id] = {"stage": "category"}
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    for cat in categories:
+        markup.add(cat)
+    markup.add("Скасувати")
     bot.send_message(chat_id, "Що саме звітуємо?", reply_markup=markup)
 
-@bot.message_handler(commands=['готово'])
-def finish_report(message):
+# === ОБРОБКА ВИБОРУ ===
+@bot.message_handler(func=lambda m: True)
+def handle_all(message):
     chat_id = message.chat.id
-    entries = user_reports.get(chat_id, [])
-    if entries:
-        text = "Готове:\n" + "\n".join(entries)
-    else:
-        text = "Поки що нічого не збережено."
-    bot.send_message(chat_id, text)
+    text = message.text
+    state = user_states.get(chat_id, {"stage": "category"})
 
-@bot.callback_query_handler(func=lambda call: True)
-def handle_callback(call):
-    chat_id = call.message.chat.id
+    if text == "Скасувати":
+        bot.send_message(chat_id, "Звіт скасовано.")
+        user_states.pop(chat_id, None)
+        return
 
-    if call.data == "категорія:Пироги":
-        markup = types.InlineKeyboardMarkup()
-        for subcat in pies_categories.keys():
-            markup.add(types.InlineKeyboardButton(subcat, callback_data=f"пироги_кат:{subcat}"))
-        markup.add(types.InlineKeyboardButton("↩ Назад до категорій", callback_data="повернутися"))
-        bot.edit_message_text("Оберіть підкатегорію пирогів:", chat_id, call.message.message_id, reply_markup=markup)
+    if text == "/готово":
+        result = "\n".join(user_reports.get(chat_id, []) or ["(нічого не збережено)"])
+        bot.send_message(chat_id, f"*Готове:*\n{result}", parse_mode="Markdown")
+        user_states.pop(chat_id, None)
+        return
 
-    elif call.data.startswith("пироги_кат:"):
-        subcat = call.data.split(":")[1]
-        markup = types.InlineKeyboardMarkup(row_width=2)
-        for emoji in pies_categories[subcat]:
-            markup.add(types.InlineKeyboardButton(emoji, callback_data=f"пиріг:{emoji}:{subcat}"))
-        markup.add(types.InlineKeyboardButton("↩ Назад до категорій", callback_data="категорія:Пироги"))
-        bot.edit_message_text("Оберіть виріб:", chat_id, call.message.message_id, reply_markup=markup)
+    # === Категорії ===
+    if state["stage"] == "category":
+        if text == "Пироги":
+            state["stage"] = "pies_sub"
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            markup.add("З мʼясом", "Без мʼяса", "Солодкі")
+            markup.add("↩ Назад")
+            bot.send_message(chat_id, "Оберіть підкатегорію пирогів:", reply_markup=markup)
 
-    elif call.data.startswith("пиріг:"):
-        emoji, subcat = call.data.split(":")[1:]
-        name = pies_categories[subcat][emoji]
-        bot.send_message(chat_id, f"Скільки залишилось з {emoji}?")
-        bot.register_next_step_handler_by_chat_id(chat_id, lambda msg: save_quantity(msg, emoji, name))
+        elif text == "Пиріжки":
+            state["stage"] = "pyrizhky_sub"
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            markup.add("Солоні", "Солодкі")
+            markup.add("↩ Назад")
+            bot.send_message(chat_id, "Оберіть підкатегорію:", reply_markup=markup)
 
-    elif call.data == "повернутися":
-        start_report(call.message)
+        elif text == "Галети":
+            state["stage"] = "galety"
+            send_product_buttons(chat_id, galety)
 
-    elif call.data == "скасувати":
-        bot.edit_message_text("Звіт скасовано.", chat_id, call.message.message_id)
+        elif text == "Десерти":
+            state["stage"] = "deserty"
+            send_product_buttons(chat_id, deserty)
 
-def save_quantity(message, emoji, name):
-    chat_id = message.chat.id
-    qty = message.text.strip()
-    if qty.isdigit():
-        record = f"{emoji} {name} — {qty} шт."
-        user_reports[chat_id].append(record)
-        bot.send_message(chat_id, f"Записано: {record}")
-    else:
-        bot.send_message(chat_id, "Це не виглядає як число. Спробуйте ще раз.")
+    # === Підкатегорії пирогів ===
+    elif state["stage"] == "pies_sub":
+        if text == "↩ Назад":
+            return start_report(message)
+        if text in pies:
+            state["stage"] = "pies_select"
+            state["current_dict"] = pies[text]
+            send_product_buttons(chat_id, pies[text])
+
+    # === Підкатегорії пиріжків ===
+    elif state["stage"] == "pyrizhky_sub":
+        if text == "↩ Назад":
+            return start_report(message)
+        if text == "Солоні":
+            state["stage"] = "savory_pyrizhky"
+            state["current_dict"] = savory_pyrizhky
+            send_product_buttons(chat_id, savory_pyrizhky)
+        elif text == "Солодкі":
+            state["stage"] = "sweet_pyrizhky"
+            state["current_dict"] = sweet_pyrizhky
+            send_product_buttons(chat_id, sweet_pyrizhky)
+
+    # === Натискання на кнопку виробу ===
+    elif "current_dict" in state and text in state["current_dict"]:
+        state["waiting_for_count"] = text
+        bot.send_message(chat_id, f"Скільки залишилось з {text}?")
+
+    # === Введення кількості ===
+    elif "waiting_for_count" in state:
+        emoji = state["waiting_for_count"]
+        name = state["current_dict"][emoji]
+        user_reports[chat_id].append(f"{emoji} {name} — {text} шт.")
+        state.pop("waiting_for_count")
+        send_product_buttons(chat_id, state["current_dict"])
+
+# === КНОПКИ З ТОВАРАМИ ===
+def send_product_buttons(chat_id, data):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    keys = list(data.keys())
+    for i in range(0, len(keys), 2):
+        row = keys[i:i + 2]
+        markup.add(*row)
+    markup.add("/готово")
+    bot.send_message(chat_id, "Оберіть виріб:", reply_markup=markup)
+
+# === СТАРТ БОТА ===
+bot.infinity_polling()
