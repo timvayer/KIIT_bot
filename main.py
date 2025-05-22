@@ -7,8 +7,11 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 bot = telebot.TeleBot(BOT_TOKEN)
 
+user_state = {}
+user_data = {}
+
 # Дані
-savory_pyrizhky = {
+pyrizhky_savory = {
     "🥔": "Картопля",
     "🥔🍄": "Картопля-гриби",
     "🍄": "Гриби",
@@ -16,8 +19,7 @@ savory_pyrizhky = {
     "🥬🥩": "Капуста-мʼясо",
     "🥩🥗": "Мʼясо-овочі"
 }
-
-sweet_pyrizhky = {
+pyrizhky_sweet = {
     "🍒": "Вишня",
     "🍒🍫": "Вишня-шоколад",
     "🍒🌼": "Вишня-мак",
@@ -28,149 +30,140 @@ sweet_pyrizhky = {
     "Мак-крем": "Мак-крем",
     "Яблуко-кориця": "Яблуко-кориця"
 }
-
-pies_with_meat = {
+pies_meat = {
     "🍗🍅🧀": "Курка-томати-сир",
     "🍗🍄🧀": "Курка-гриби-сир",
     "🦃🫑": "Індик-солодкий перець"
 }
-
-pies_without_meat = {
+pies_vege = {
     "🧅": "Цибулевий",
     "🧀🍄": "Сир-гриби",
-    "🧀🥬": "Сир-шпинат",
+    "🧀🍃": "Сир-шпинат",
     "🧀": "Сім сирів"
 }
-
-sweet_pies = {
+pies_sweet = {
     "🍒🫐": "Вишня-чорниця",
     "🍒🧀": "Вишня-сир"
 }
-
 galettes = {
     "🥧🍏": "Яблуко-кориця",
     "🥧🍅": "Томати-сир"
 }
-
 desserts = {
     "🍰": "Торт Наполеон",
     "🍯": "Пахлава",
     "🥜": "Горішки"
 }
 
-# Памʼять
-user_reports = {}
-user_states = {}
-
 # Команди
-@bot.message_handler(commands=["start"])
-def send_welcome(message):
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add(types.KeyboardButton("/звіт"))
-    bot.send_message(message.chat.id, "Привіт! Щоб почати звіт, натисни /звіт", reply_markup=markup)
-
-@bot.message_handler(commands=["звіт"])
+@bot.message_handler(commands=["start", "звіт"])
 def start_report(message):
-    chat_id = message.chat.id
-    user_reports[chat_id] = []
-    user_states[chat_id] = {"stage": "category"}
-
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    markup.add(
-        types.KeyboardButton("🥟 Пиріжки"),
-        types.KeyboardButton("🥧 Пироги"),
-        types.KeyboardButton("🍅 Галети"),
-        types.KeyboardButton("🍰 Десерти")
-    )
-    bot.send_message(chat_id, "Оберіть категорію:", reply_markup=markup)
-
-@bot.message_handler(func=lambda message: message.chat.id in user_states)
-def handle_state(message):
-    chat_id = message.chat.id
-    state = user_states[chat_id]
-
-    if state["stage"] == "category":
-        text = message.text
-        if text == "🥟 Пиріжки":
-            state["stage"] = "sub_pyrizhky"
-            markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-            markup.add("З мʼясом", "Без мʼяса", "Солодкі")
-            bot.send_message(chat_id, "Оберіть підкатегорію:", reply_markup=markup)
-        elif text == "🥧 Пироги":
-            state["stage"] = "sub_pies"
-            markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-            markup.add("З мʼясом", "Без мʼяса", "Солодкі")
-            bot.send_message(chat_id, "Оберіть підкатегорію:", reply_markup=markup)
-        elif text == "🍅 Галети":
-            state["stage"] = "galettes"
-            send_product_keyboard(chat_id, galettes)
-        elif text == "🍰 Десерти":
-            state["stage"] = "desserts"
-            send_product_keyboard(chat_id, desserts)
-
-    elif state["stage"] == "sub_pyrizhky":
-        sub = message.text
-        if sub == "З мʼясом":
-            state["stage"] = "input"
-            state["products"] = {k: v for k, v in savory_pyrizhky.items() if "мʼясо" in v or "овочі" in v}
-        elif sub == "Без мʼяса":
-            state["stage"] = "input"
-            state["products"] = {k: v for k, v in savory_pyrizhky.items() if "мʼясо" not in v}
-        elif sub == "Солодкі":
-            state["stage"] = "input"
-            state["products"] = sweet_pyrizhky
-        send_product_keyboard(chat_id, state["products"])
-
-    elif state["stage"] == "sub_pies":
-        sub = message.text
-        if sub == "З мʼясом":
-            state["stage"] = "input"
-            state["products"] = pies_with_meat
-        elif sub == "Без мʼяса":
-            state["stage"] = "input"
-            state["products"] = pies_without_meat
-        elif sub == "Солодкі":
-            state["stage"] = "input"
-            state["products"] = sweet_pies
-        send_product_keyboard(chat_id, state["products"])
-
-    elif state["stage"] == "input":
-        emoji = message.text.strip()
-        products = state.get("products", {})
-        if emoji in products:
-            state["current"] = emoji
-            state["stage"] = "amount"
-            bot.send_message(chat_id, f"Скільки залишилось з {emoji}?")
-        else:
-            bot.send_message(chat_id, "Оберіть виріб зі списку.")
-
-    elif state["stage"] == "amount":
-        try:
-            qty = int(message.text.strip())
-            emoji = state["current"]
-            name = state["products"][emoji]
-            user_reports[chat_id].append(f"{emoji} {name} — {qty} шт.")
-            state["stage"] = "input"
-            send_product_keyboard(chat_id, state["products"])
-        except:
-            bot.send_message(chat_id, "Введіть кількість як число.")
+    cid = message.chat.id
+    user_state[cid] = {"stage": "category"}
+    user_data[cid] = []
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add("🥟 Пиріжки", "🥧 Пироги", "🍅 Галети", "🍰 Десерти")
+    markup.add("/готово")
+    bot.send_message(cid, "Що саме звітуємо?", reply_markup=markup)
 
 @bot.message_handler(commands=["готово"])
 def finish_report(message):
-    chat_id = message.chat.id
-    entries = user_reports.get(chat_id, [])
+    cid = message.chat.id
+    entries = user_data.get(cid, [])
     if not entries:
-        bot.send_message(chat_id, "Нічого не збережено.")
+        bot.send_message(cid, "Поки що нічого не збережено.")
         return
-    result = "*Готове:*\n" + "\n".join(entries)
-    bot.send_message(chat_id, result, parse_mode="Markdown")
-    user_reports.pop(chat_id, None)
-    user_states.pop(chat_id, None)
+    lines = [f"{e['emoji']} {e['name']} — {e['qty']} шт." for e in entries]
+    bot.send_message(cid, "*Готове:*\n" + "\n".join(lines), parse_mode="Markdown")
+    user_state.pop(cid, None)
+    user_data.pop(cid, None)
 
-def send_product_keyboard(chat_id, items):
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    for emoji in items:
-        markup.add(types.KeyboardButton(emoji))
+@bot.message_handler(func=lambda m: True)
+def handle_message(message):
+    cid = message.chat.id
+    text = message.text.strip()
+    state = user_state.get(cid, {"stage": None})
+
+    if text == "/готово":
+        finish_report(message)
+        return
+
+    if state["stage"] == "category":
+        if text == "🥟 Пиріжки":
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            markup.add("Солоні", "Солодкі", "/готово")
+            state["stage"] = "sub_pyrizhky"
+            user_state[cid] = state
+            bot.send_message(cid, "Оберіть підкатегорію пиріжків:", reply_markup=markup)
+
+        elif text == "🥧 Пироги":
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            markup.add("З мʼясом", "Без мʼяса", "Солодкі", "/готово")
+            state["stage"] = "sub_pies"
+            user_state[cid] = state
+            bot.send_message(cid, "Оберіть підкатегорію пирогів:", reply_markup=markup)
+
+        elif text == "🍅 Галети":
+            state["products"] = galettes
+            state["stage"] = "choose_item"
+            user_state[cid] = state
+            send_product_keyboard(cid, galettes)
+
+        elif text == "🍰 Десерти":
+            state["products"] = desserts
+            state["stage"] = "choose_item"
+            user_state[cid] = state
+            send_product_keyboard(cid, desserts)
+
+    elif state["stage"] == "sub_pyrizhky":
+        if text == "Солоні":
+            state["products"] = pyrizhky_savory
+        elif text == "Солодкі":
+            state["products"] = pyrizhky_sweet
+        else:
+            return
+        state["stage"] = "choose_item"
+        user_state[cid] = state
+        send_product_keyboard(cid, state["products"])
+
+    elif state["stage"] == "sub_pies":
+        if text == "З мʼясом":
+            state["products"] = pies_meat
+        elif text == "Без мʼяса":
+            state["products"] = pies_vege
+        elif text == "Солодкі":
+            state["products"] = pies_sweet
+        else:
+            return
+        state["stage"] = "choose_item"
+        user_state[cid] = state
+        send_product_keyboard(cid, state["products"])
+
+    elif state["stage"] == "choose_item":
+        if text in state.get("products", {}):
+            state["current"] = text
+            state["stage"] = "enter_qty"
+            user_state[cid] = state
+            bot.send_message(cid, f"Скільки залишилось з {text}?")
+
+    elif state["stage"] == "enter_qty":
+        if text.isdigit():
+            qty = int(text)
+            emoji = state["current"]
+            name = state["products"].get(emoji, "Невідомо")
+            user_data[cid].append({"emoji": emoji, "name": name, "qty": qty})
+            state["stage"] = "choose_item"
+            user_state[cid] = state
+            send_product_keyboard(cid, state["products"])
+        else:
+            bot.send_message(cid, "Введіть кількість як число.")
+
+def send_product_keyboard(chat_id, products):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    buttons = [types.KeyboardButton(k) for k in products.keys()]
+    for i in range(0, len(buttons), 2):
+        markup.add(*buttons[i:i+2])
+    markup.add("/готово")
     bot.send_message(chat_id, "Оберіть виріб:", reply_markup=markup)
 
 bot.polling(none_stop=True)
