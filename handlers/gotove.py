@@ -29,34 +29,31 @@ def show_gotove_menu(call):
 @bot.callback_query_handler(func=lambda call: call.data == "готове_pies")
 def show_pies_list(call):
     chat_id = call.message.chat.id
-    markup = types.InlineKeyboardMarkup(row_width=2)
 
+    # Надсилаємо секції
     bot.send_message(chat_id, "*Мʼясні пироги:*", parse_mode='Markdown')
+    bot.send_message(chat_id, ".")
+    bot.send_message(chat_id, "*Немʼясні пироги:*", parse_mode='Markdown')
+    bot.send_message(chat_id, ".")
+    bot.send_message(chat_id, "*Солодкі пироги:*", parse_mode='Markdown')
+    bot.send_message(chat_id, " ")
+
+    # Формуємо кнопки
+    markup = types.InlineKeyboardMarkup(row_width=2)
     markup.add(
         types.InlineKeyboardButton("🍗🍅🧀", callback_data="пиріг_🍗🍅🧀"),
         types.InlineKeyboardButton("🍗🍍🧀", callback_data="пиріг_🍗🍍🧀"),
         types.InlineKeyboardButton("🍗🍄🧀", callback_data="пиріг_🍗🍄🧀"),
         types.InlineKeyboardButton("🐄🧀", callback_data="пиріг_🐄🧀"),
-        types.InlineKeyboardButton("🦃🫑", callback_data="пиріг_🦃🫑")
-    )
-    bot.send_message(chat_id, ".", parse_mode='Markdown')
-
-    bot.send_message(chat_id, "*Немʼясні пироги:*", parse_mode='Markdown')
-    markup.add(
+        types.InlineKeyboardButton("🦃🫑", callback_data="пиріг_🦃🫑"),
         types.InlineKeyboardButton("🧅", callback_data="пиріг_🧅"),
         types.InlineKeyboardButton("🍄🧀", callback_data="пиріг_🍄🧀"),
         types.InlineKeyboardButton("🧀🍃", callback_data="пиріг_🧀🍃"),
-        types.InlineKeyboardButton("🧀", callback_data="пиріг_🧀")
-    )
-    bot.send_message(chat_id, ".", parse_mode='Markdown')
-
-    bot.send_message(chat_id, "*Солодкі пироги:*", parse_mode='Markdown')
-    markup.add(
+        types.InlineKeyboardButton("🧀", callback_data="пиріг_🧀"),
         types.InlineKeyboardButton("🍒🫐", callback_data="пиріг_🍒🫐"),
         types.InlineKeyboardButton("🍒🧀", callback_data="пиріг_🍒🧀")
     )
-    bot.send_message(chat_id, " ", parse_mode='Markdown')
-
     markup.add(types.InlineKeyboardButton("🔚 З пирогами — все", callback_data="готове"))
 
+    # І тільки тепер надсилаємо кнопки
     bot.send_message(chat_id, "Оберіть пиріг:", reply_markup=markup)
