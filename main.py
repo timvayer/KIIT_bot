@@ -2,7 +2,7 @@ import telebot
 from telebot import types
 import os
 from dotenv import load_dotenv
-from datetime import datetime
+from datetime import datetime, timedelta
 
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -11,7 +11,7 @@ bot = telebot.TeleBot(BOT_TOKEN)
 user_states = {}
 user_reports = {}
 
-# === ВИБІР ЛОКАЦІЇ ===
+# === /start або /звіт ===
 @bot.message_handler(commands=['start', 'звіт'])
 def start_report(message):
     chat_id = message.chat.id
@@ -25,20 +25,28 @@ def start_report(message):
     )
     bot.send_message(chat_id, "Оберіть локацію для звіту:", reply_markup=markup)
 
-# === ГОЛОВНЕ МЕНЮ ===
+# === Меню ===
 def show_main_menu(chat_id):
     markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("🥧 Готове", callback_data="готове"))
-    markup.add(types.InlineKeyboardButton("🥶 Заморозка", callback_data="заморозка"))
-    markup.add(types.InlineKeyboardButton("🥛 Молоко", callback_data="молоко"))
-    markup.add(types.InlineKeyboardButton("💧 Напої", callback_data="напої"))
-    markup.add(types.InlineKeyboardButton("🧃 Соки", callback_data="соки"))
-    markup.add(types.InlineKeyboardButton("☕️ Кава / Матча / Чаї", callback_data="кава"))
-    markup.add(types.InlineKeyboardButton("📦 Розхідники", callback_data="розхідники"))
-    markup.add(types.InlineKeyboardButton("✅ Завершити звіт", callback_data="завершити"))
+    markup.row(
+        types.InlineKeyboardButton("🥧 Готове", callback_data="готове"),
+        types.InlineKeyboardButton("🥶 Заморозка", callback_data="заморозка")
+    )
+    markup.row(
+        types.InlineKeyboardButton("🥛 Молоко", callback_data="молоко"),
+        types.InlineKeyboardButton("💧 Напої", callback_data="напої")
+    )
+    markup.row(
+        types.InlineKeyboardButton("🧃 Соки", callback_data="соки"),
+        types.InlineKeyboardButton("☕️ Кава / Матча / Чаї", callback_data="кава")
+    )
+    markup.row(
+        types.InlineKeyboardButton("📦 Розхідники", callback_data="розхідники"),
+        types.InlineKeyboardButton("✅ Завершити звіт", callback_data="завершити")
+    )
     bot.send_message(chat_id, "З чого почнемо?", reply_markup=markup)
 
-# === ПЕРЕХОПЛЕННЯ КНОПОК ===
+# === Обробка кнопок ===
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
     chat_id = call.message.chat.id
@@ -66,12 +74,24 @@ def callback_handler(call):
     elif data == "розхідники":
         bot.send_message(chat_id, "Розділ 'Розхідники' ще в розробці.")
     elif data == "завершити":
-        today = datetime.now().strftime("🗓️ %d.%m.%Y, %A")
+        # Львівський час
+        now = datetime.utcnow() + timedelta(hours=3)
+        day_name = {
+            'Monday': 'понеділок',
+            'Tuesday': 'вівторок',
+            'Wednesday': 'середа',
+            'Thursday': 'четвер',
+            'Friday': 'пʼятниця',
+            'Saturday': 'субота',
+            'Sunday': 'неділя'
+        }[now.strftime('%A')]
+        дата = now.strftime(f"🗓️ %d.%m.%Y, {day_name}")
+
         локація = user_reports.get(chat_id, {}).get("локація", "Локація не вказана")
-        header = f"{today}\n📍 {локація}"
+        header = f"{дата}\n📍 {локація}"
         bot.send_message(chat_id, f"{header}\n\n(Звіт ще не заповнено.)")
     else:
         bot.send_message(chat_id, "Невідома команда.")
 
-# === ЗАПУСК ===
+# === Запуск бота ===
 bot.polling()
