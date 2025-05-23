@@ -1,45 +1,39 @@
-import telebot
-from telebot import types
+from telebot import TeleBot, types
+from handlers.report import handle_report
+from handlers.gotove import handle_gotove
+from handlers.pyrizhky import handle_pyrizhky
+from handlers.finalize import handle_finalize
+from handlers.state import State
+
 import os
+from dotenv import load_dotenv
+load_dotenv()
 
-from handlers import gotove, pyrizhky, report, finalize, state
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+bot = TeleBot(BOT_TOKEN)
 
-TOKEN = os.getenv("BOT_TOKEN")
-bot = telebot.TeleBot(TOKEN)
+@bot.message_handler(commands=['start'])
+def start(message):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add('/звіт')
+    bot.send_message(message.chat.id, "Привіт! Натисни /звіт, щоб розпочати.", reply_markup=markup)
 
-# Головне меню
-@bot.message_handler(commands=['start', 'звіт'])
-def handle_start(message):
-    chat_id = message.chat.id
+@bot.message_handler(commands=['звіт'])
+def report(message):
+    handle_report(bot, message)
 
-    keyboard = types.InlineKeyboardMarkup(row_width=2)
-    keyboard.add(
-        types.InlineKeyboardButton("🥧 Готове", callback_data="gotove"),
-        types.InlineKeyboardButton("🧊 Заморозка", callback_data="zamorozka"),
-        types.InlineKeyboardButton("🥛 Молоко", callback_data="moloko"),
-        types.InlineKeyboardButton("💧 Напої", callback_data="napoyi"),
-        types.InlineKeyboardButton("🧃 Соки", callback_data="soky"),
-        types.InlineKeyboardButton("☕ Кава / Матча / Чаї", callback_data="kava"),
-        types.InlineKeyboardButton("📦 Розхідники", callback_data="rozxidnyky"),
-        types.InlineKeyboardButton("✅ Завершити звіт", callback_data="finalize"),
-    )
-    bot.send_message(chat_id, "З чого почнемо?", reply_markup=keyboard)
+# Обробники категорій
+@bot.callback_query_handler(func=lambda call: call.data.startswith("готове"))
+def gotove_callback(call):
+    handle_gotove(bot, call)
 
-# Колбеки основного меню
-@bot.callback_query_handler(func=lambda call: True)
-def handle_callbacks(call):
-    if call.data == "gotove":
-        gotove.start_gotove(bot, call.message)
-    elif call.data == "pyrizhky":
-        pyrizhky.start_pyrizhky(bot, call.message)
-    elif call.data == "report":
-        report.show_report(bot, call.message)
-    elif call.data == "finalize":
-        finalize.send_final_report(bot, call.message)
-    else:
-        bot.send_message(call.message.chat.id, "Ця функція ще в розробці.")
+@bot.callback_query_handler(func=lambda call: call.data.startswith("пиріжки"))
+def pyrizhky_callback(call):
+    handle_pyrizhky(bot, call)
 
-# Запуск бота
-if __name__ == '__main__':
-    print("KIIT_helper_bot is running...")
-    bot.infinity_polling()
+@bot.callback_query_handler(func=lambda call: call.data.startswith("завершити"))
+def finalize_callback(call):
+    handle_finalize(bot, call)
+
+print("Бот працює...")
+bot.infinity_polling()
