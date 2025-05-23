@@ -1,28 +1,15 @@
-import telebot
-from telebot import types
-from handlers import gotove, pyrizhky, finalize, state, report
+import os
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from dotenv import load_dotenv
 
-bot = telebot.TeleBot("YOUR_BOT_TOKEN")
+load_dotenv()
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-@bot.message_handler(commands=['start', 'звіт'])
-def start(message):
-    report.start_report(message)
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Привіт, Сергію! ✅ Бот оновлено автоматично.")
 
-@bot.callback_query_handler(func=lambda call: call.data == "готове")
-def handle_gotove(call):
-    gotove.show_gotove_menu(call)
-
-@bot.callback_query_handler(func=lambda call: call.data == "готове_pies")
-def handle_pies(call):
-    gotove.show_pies_list(call)
-
-@bot.callback_query_handler(func=lambda call: call.data == "готове_pyrizhky")
-def handle_pyrizhky(call):
-    pyrizhky.show_pyrizhky_menu(call)
-
-@bot.callback_query_handler(func=lambda call: call.data == "завершити")
-def handle_finalize(call):
-    finalize.complete_report(call)
-
-print("Бот запущено")
-bot.infinity_polling()
+if __name__ == '__main__':
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.run_polling()
