@@ -1,1 +1,2 @@
-# state logic here
+user_states = {}
+user_reports = {}
